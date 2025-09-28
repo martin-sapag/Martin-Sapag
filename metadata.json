@@ -1,0 +1,5 @@
+{
+  "name": "Control Presupuestario Fundación",
+  "description": "Una aplicación para gestionar y controlar la ejecución presupuestaria de programas para la Fundación Salud Para Todos. Permite registrar ingresos, egresos, y generar informes detallados por programa y un balance general.",
+  "requestFramePermissions": []
+}
