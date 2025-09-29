@@ -2,7 +2,9 @@
 import React, { useMemo } from 'react';
 import { Program, Transaction, TransactionType, ExpenseTransaction } from '../types';
 import { formatCurrency, formatDate, exportToCsv } from '../utils/formatter';
+import { exportProgramPdf } from '../utils/pdfGenerator';
 import TransactionsTable from './TransactionsTable';
+import ExportButton from './ui/ExportButton';
 import { InfoCard } from './ui/Card';
 
 interface ProgramDetailProps {
@@ -17,12 +19,6 @@ const ArrowLeftIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
     </svg>
-);
-
-const DownloadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-  </svg>
 );
 
 
@@ -47,7 +43,7 @@ const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, on
   const incomeTransactions = useMemo(() => transactions.filter(t => t.type === TransactionType.INCOME), [transactions]);
   const expenseTransactions = useMemo(() => transactions.filter(t => t.type === TransactionType.EXPENSE) as ExpenseTransaction[], [transactions]);
 
-  const handleExportProgram = () => {
+  const handleExportProgramCsv = () => {
     const headers = ['Tipo', 'Fecha', 'Detalle (Fuente/Gasto)', 'N° Factura', 'Monto', 'Estado'];
 
     const data = transactions
@@ -80,6 +76,10 @@ const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, on
     const safeFilename = program.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     exportToCsv(`Informe_${safeFilename}.csv`, headers, data);
   };
+  
+  const handleExportProgramPdf = () => {
+    exportProgramPdf(program, transactions, summary);
+  };
 
   return (
     <div className="space-y-8">
@@ -89,15 +89,12 @@ const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, on
                 <ArrowLeftIcon />
                 Volver al Dashboard
             </button>
-            <button 
-                onClick={handleExportProgram}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-500 transition disabled:bg-slate-800 disabled:cursor-not-allowed"
+            <ExportButton 
+                onExportCsv={handleExportProgramCsv}
+                onExportPdf={handleExportProgramPdf}
                 disabled={transactions.length === 0}
-                aria-label="Exportar Informe del Programa a CSV"
-            >
-                <DownloadIcon />
-                Exportar Informe
-            </button>
+                label="Exportar Informe"
+            />
         </div>
         <h2 className={`text-3xl font-bold text-slate-100 transition-opacity ${program.isGhosted ? 'opacity-50' : ''}`}>{program.name}</h2>
         <p className={`text-teal-400 transition-opacity ${program.isGhosted ? 'opacity-50' : ''}`}>{program.adminFeePercentage}% para Costos Administrativos</p>

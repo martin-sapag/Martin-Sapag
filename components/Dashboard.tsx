@@ -2,7 +2,9 @@
 import React, { useMemo } from 'react';
 import { Program, Transaction, TransactionType } from '../types';
 import { formatCurrency, formatDate, exportToCsv } from '../utils/formatter';
+import { exportGeneralPdf } from '../utils/pdfGenerator';
 import ProgramCard from './ProgramCard';
+import ExportButton from './ui/ExportButton';
 import { InfoCard } from './ui/Card';
 
 interface DashboardProps {
@@ -18,12 +20,6 @@ interface DashboardProps {
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
-
-const DownloadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
   </svg>
 );
 
@@ -64,7 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [transactions, programs]);
 
-  const handleExportGeneral = () => {
+  const handleExportGeneralCsv = () => {
     const headers = ['Programa', 'Tipo', 'Fecha', 'Detalle (Fuente/Gasto)', 'N° Factura', 'Monto', 'Estado'];
     
     const data = transactions
@@ -99,6 +95,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     
     exportToCsv('Informe_General_Fundacion.csv', headers, data);
   };
+  
+  const handleExportGeneralPdf = () => {
+      exportGeneralPdf(programs, transactions, summary);
+  }
 
   return (
     <div className="space-y-8">
@@ -121,15 +121,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             <PlusIcon />
             Nueva Transacción
           </button>
-          <button 
-            onClick={handleExportGeneral}
-            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:cursor-not-allowed"
-            disabled={transactions.length === 0}
-            aria-label="Exportar Informe General a CSV"
-          >
-              <DownloadIcon />
-              Exportar General
-          </button>
+          <div className="flex-1">
+             <ExportButton 
+                onExportCsv={handleExportGeneralCsv}
+                onExportPdf={handleExportGeneralPdf}
+                disabled={transactions.length === 0}
+                label="Exportar General"
+              />
+          </div>
       </div>
 
       <div>
