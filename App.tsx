@@ -76,9 +76,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-900 font-sans flex flex-col">
       <Header />
-      <main className="container mx-auto p-4 md:p-8">
+      <main className="container mx-auto p-4 md:p-8 flex-grow">
         {selectedProgram ? (
           <ProgramDetail 
             program={selectedProgram}
@@ -99,6 +99,10 @@ export default function App() {
           />
         )}
       </main>
+      
+      <footer className="text-center py-4 text-slate-500 text-sm">
+        <p>&copy; {new Date().getFullYear()} mAIruba. All rights reserved.</p>
+      </footer>
 
       {isAddProgramModalOpen && (
         <AddProgramModal

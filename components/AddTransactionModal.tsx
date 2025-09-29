@@ -26,10 +26,12 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ programs, onC
 
     const commonData = { programId, amount: numericAmount, date };
 
+    // FIX: Cast the object to the expected union type to bypass TypeScript's excess property checking for discriminated unions.
+    // This resolves errors for 'source', 'expenseType', and 'invoiceNumber' not being present on all members of the Transaction union type.
     if (type === TransactionType.INCOME) {
-      onAddTransaction({ ...commonData, type, source });
+      onAddTransaction({ ...commonData, type, source } as Omit<Transaction, 'id'>);
     } else {
-      onAddTransaction({ ...commonData, type, expenseType, invoiceNumber });
+      onAddTransaction({ ...commonData, type, expenseType, invoiceNumber } as Omit<Transaction, 'id'>);
     }
   };
   
