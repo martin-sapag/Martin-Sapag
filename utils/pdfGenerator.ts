@@ -6,9 +6,8 @@ import { formatCurrency, formatDate } from './formatter';
 // Access global objects from CDN
 const { jsPDF } = window.jspdf;
 
-// Helper to add header and footer
-const addHeaderAndFooter = (doc, title, foundationName) => {
-    const pageCount = doc.internal.getNumberOfPages();
+// Helper to draw header.
+const drawHeader = (doc, title, foundationName) => {
     doc.setFontSize(16);
     doc.setTextColor(44, 122, 123); // Teal color
     doc.text(title, 14, 22);
@@ -19,16 +18,21 @@ const addHeaderAndFooter = (doc, title, foundationName) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(`Generado el: ${new Date().toLocaleDateString('es-AR')}`, doc.internal.pageSize.getWidth() - 14, 22, { align: 'right' });
+};
 
-
-    for (var i = 1; i <= pageCount; i++) {
+// Helper to add footers with page numbers to all pages after rendering.
+const addFooters = (doc) => {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
         doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, 287, {
             align: 'center'
         });
     }
 };
+
 
 export const exportProgramPdf = (
   program: Program,
@@ -38,6 +42,8 @@ export const exportProgramPdf = (
   const doc = new jsPDF();
   const foundationName = "Fundación Salud Para Todos";
   const title = `Informe del Programa: ${program.name}`;
+
+  drawHeader(doc, title, foundationName);
 
   // Summary Cards
   doc.setFontSize(10);
@@ -65,10 +71,13 @@ export const exportProgramPdf = (
   doc.setTextColor(100, 100, 100);
   doc.text("Balance Disp.:", 90, 48);
   doc.setFontSize(12);
-  doc.setTextColor(summary.balance >= 0 ? [6, 182, 212] : [239, 68, 68]); // Cyan or Red
+  if (summary.balance >= 0) {
+    doc.setTextColor(6, 182, 212); // Cyan
+  } else {
+    doc.setTextColor(239, 68, 68); // Red
+  }
   doc.text(formatCurrency(summary.balance), 115, 48);
   
-
   const tableData = transactions
     .filter(t => !t.isGhosted)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -80,7 +89,7 @@ export const exportProgramPdf = (
       }
     });
 
-  autoTable(doc, {
+  doc.autoTable({
     startY: 60,
     head: [['Fecha', 'Tipo', 'Detalle', 'N° Factura', 'Monto']],
     body: tableData,
@@ -92,11 +101,15 @@ export const exportProgramPdf = (
     styles: {
         font: 'helvetica'
     },
-    didDrawPage: () => addHeaderAndFooter(doc, title, foundationName)
+    didDrawPage: (data) => {
+      // Draw header on each page the table spans
+      if (data.pageNumber > 1) {
+          drawHeader(doc, title, foundationName);
+      }
+    }
   });
   
-  // Final call to add header/footer to the first page
-  addHeaderAndFooter(doc, title, foundationName);
+  addFooters(doc);
 
   const safeFilename = program.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   doc.save(`Informe_${safeFilename}.pdf`);
@@ -112,6 +125,8 @@ export const exportGeneralPdf = (
     const foundationName = "Fundación Salud Para Todos";
     const title = 'Informe General de Ejecución';
     
+    drawHeader(doc, title, foundationName);
+
     // Summary Cards similar to Program PDF
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
@@ -138,7 +153,11 @@ export const exportGeneralPdf = (
     doc.setTextColor(100, 100, 100);
     doc.text("Balance General:", 100, 48);
     doc.setFontSize(12);
-    doc.setTextColor(summary.balance >= 0 ? [6, 182, 212] : [239, 68, 68]); // Cyan or Red
+    if (summary.balance >= 0) {
+        doc.setTextColor(6, 182, 212); // Cyan
+    } else {
+        doc.setTextColor(239, 68, 68); // Red
+    }
     doc.text(formatCurrency(summary.balance), 135, 48);
 
 
@@ -170,7 +189,7 @@ export const exportGeneralPdf = (
         }
     });
 
-    autoTable(doc, {
+    doc.autoTable({
         startY: 60,
         head: [['Programa', 'Fecha', 'Tipo', 'Detalle', 'N° Factura', 'Monto']],
         body: tableData,
@@ -182,10 +201,14 @@ export const exportGeneralPdf = (
         styles: {
             font: 'helvetica'
         },
-        didDrawPage: () => addHeaderAndFooter(doc, title, foundationName)
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+              drawHeader(doc, title, foundationName);
+          }
+        }
     });
 
-    addHeaderAndFooter(doc, title, foundationName);
+    addFooters(doc);
 
     doc.save('Informe_General_Fundacion.pdf');
 };
