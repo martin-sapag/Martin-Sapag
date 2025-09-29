@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Program, Transaction, TransactionType } from '../types';
-import { formatCurrency } from '../utils/formatter';
+import { formatCurrency, formatDate, exportToCsv } from '../utils/formatter';
 import ProgramCard from './ProgramCard';
 import { InfoCard } from './ui/Card';
 
@@ -11,6 +11,8 @@ interface DashboardProps {
   onSelectProgram: (programId: string) => void;
   onOpenAddProgramModal: () => void;
   onOpenAddTransactionModal: () => void;
+  onEditProgram: (program: Program) => void;
+  onToggleProgramGhost: (programId: string) => void;
 }
 
 const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -19,24 +21,36 @@ const PlusIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
+const DownloadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+);
+
+
 const Dashboard: React.FC<DashboardProps> = ({
   programs,
   transactions,
   onSelectProgram,
   onOpenAddProgramModal,
   onOpenAddTransactionModal,
+  onEditProgram,
+  onToggleProgramGhost
 }) => {
   const summary = useMemo(() => {
-    const totalIncome = transactions
+    const activeTransactions = transactions.filter(t => !t.isGhosted);
+    const activePrograms = programs.filter(p => !p.isGhosted);
+
+    const totalIncome = activeTransactions
       .filter(t => t.type === TransactionType.INCOME)
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = activeTransactions
       .filter(t => t.type === TransactionType.EXPENSE)
       .reduce((sum, t) => sum + t.amount, 0);
     
-    const totalAdminFees = programs.reduce((totalFee, prog) => {
-        const programIncome = transactions
+    const totalAdminFees = activePrograms.reduce((totalFee, prog) => {
+        const programIncome = activeTransactions
             .filter(t => t.programId === prog.id && t.type === TransactionType.INCOME)
             .reduce((sum, t) => sum + t.amount, 0);
         return totalFee + (programIncome * (prog.adminFeePercentage / 100));
@@ -49,6 +63,42 @@ const Dashboard: React.FC<DashboardProps> = ({
       balance: totalIncome - totalExpenses - totalAdminFees,
     };
   }, [transactions, programs]);
+
+  const handleExportGeneral = () => {
+    const headers = ['Programa', 'Tipo', 'Fecha', 'Detalle (Fuente/Gasto)', 'N° Factura', 'Monto', 'Estado'];
+    
+    const data = transactions
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(tx => {
+            const programName = programs.find(p => p.id === tx.programId)?.name || 'N/A';
+            const date = formatDate(tx.date);
+            const status = tx.isGhosted ? 'Desactivado' : 'Activo';
+            
+            if (tx.type === TransactionType.INCOME) {
+                return [
+                    programName,
+                    'Ingreso',
+                    date,
+                    tx.source,
+                    '', // No invoice number for income
+                    tx.amount,
+                    status
+                ];
+            } else { // Expense
+                return [
+                    programName,
+                    'Egreso',
+                    date,
+                    tx.expenseType,
+                    tx.invoiceNumber,
+                    tx.amount,
+                    status
+                ];
+            }
+        });
+    
+    exportToCsv('Informe_General_Fundacion.csv', headers, data);
+  };
 
   return (
     <div className="space-y-8">
@@ -67,9 +117,18 @@ const Dashboard: React.FC<DashboardProps> = ({
             <PlusIcon />
             Nuevo Programa
           </button>
-          <button onClick={onOpenAddTransactionModal} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center gap-2" disabled={programs.length === 0}>
+          <button onClick={onOpenAddTransactionModal} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center gap-2 disabled:bg-sky-800 disabled:cursor-not-allowed" disabled={programs.filter(p => !p.isGhosted).length === 0}>
             <PlusIcon />
             Nueva Transacción
+          </button>
+          <button 
+            onClick={handleExportGeneral}
+            className="flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:cursor-not-allowed"
+            disabled={transactions.length === 0}
+            aria-label="Exportar Informe General a CSV"
+          >
+              <DownloadIcon />
+              Exportar General
           </button>
       </div>
 
@@ -85,6 +144,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                   program={program}
                   transactions={programTransactions}
                   onClick={() => onSelectProgram(program.id)}
+                  onEdit={onEditProgram}
+                  onToggleGhost={onToggleProgramGhost}
                 />
               );
             })}

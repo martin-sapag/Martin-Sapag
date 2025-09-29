@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
-import { Program, Transaction, TransactionType } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatter';
+import { Program, Transaction, TransactionType, ExpenseTransaction } from '../types';
+import { formatCurrency, formatDate, exportToCsv } from '../utils/formatter';
 import TransactionsTable from './TransactionsTable';
 import { InfoCard } from './ui/Card';
 
@@ -9,6 +9,8 @@ interface ProgramDetailProps {
   program: Program;
   transactions: Transaction[];
   onBack: () => void;
+  onToggleTransactionGhost: (transactionId: string) => void;
+  onEditTransaction: (transaction: Transaction) => void;
 }
 
 const ArrowLeftIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -17,14 +19,22 @@ const ArrowLeftIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     </svg>
 );
 
+const DownloadIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+  </svg>
+);
 
-const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, onBack }) => {
+
+const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, onBack, onToggleTransactionGhost, onEditTransaction }) => {
   const summary = useMemo(() => {
-    const income = transactions
+    const activeTransactions = transactions.filter(t => !t.isGhosted);
+
+    const income = activeTransactions
       .filter(t => t.type === TransactionType.INCOME)
       .reduce((sum, t) => sum + t.amount, 0);
       
-    const expenses = transactions
+    const expenses = activeTransactions
       .filter(t => t.type === TransactionType.EXPENSE)
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -35,18 +45,62 @@ const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, on
   }, [transactions, program]);
 
   const incomeTransactions = useMemo(() => transactions.filter(t => t.type === TransactionType.INCOME), [transactions]);
-  const expenseTransactions = useMemo(() => transactions.filter(t => t.type === TransactionType.EXPENSE), [transactions]);
+  const expenseTransactions = useMemo(() => transactions.filter(t => t.type === TransactionType.EXPENSE) as ExpenseTransaction[], [transactions]);
 
+  const handleExportProgram = () => {
+    const headers = ['Tipo', 'Fecha', 'Detalle (Fuente/Gasto)', 'N° Factura', 'Monto', 'Estado'];
+
+    const data = transactions
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(tx => {
+            const date = formatDate(tx.date);
+            const status = tx.isGhosted ? 'Desactivado' : 'Activo';
+            
+            if (tx.type === TransactionType.INCOME) {
+                return [
+                    'Ingreso',
+                    date,
+                    tx.source,
+                    '', // No invoice number for income
+                    tx.amount,
+                    status
+                ];
+            } else { // Expense
+                return [
+                    'Egreso',
+                    date,
+                    tx.expenseType,
+                    tx.invoiceNumber,
+                    tx.amount,
+                    status
+                ];
+            }
+        });
+    
+    const safeFilename = program.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    exportToCsv(`Informe_${safeFilename}.csv`, headers, data);
+  };
 
   return (
     <div className="space-y-8">
       <div>
-        <button onClick={onBack} className="mb-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-700 hover:bg-slate-600 transition">
-          <ArrowLeftIcon />
-          Volver al Dashboard
-        </button>
-        <h2 className="text-3xl font-bold text-slate-100">{program.name}</h2>
-        <p className="text-teal-400">{program.adminFeePercentage}% para Costos Administrativos</p>
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <button onClick={onBack} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-700 hover:bg-slate-600 transition">
+                <ArrowLeftIcon />
+                Volver al Dashboard
+            </button>
+            <button 
+                onClick={handleExportProgram}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-500 transition disabled:bg-slate-800 disabled:cursor-not-allowed"
+                disabled={transactions.length === 0}
+                aria-label="Exportar Informe del Programa a CSV"
+            >
+                <DownloadIcon />
+                Exportar Informe
+            </button>
+        </div>
+        <h2 className={`text-3xl font-bold text-slate-100 transition-opacity ${program.isGhosted ? 'opacity-50' : ''}`}>{program.name}</h2>
+        <p className={`text-teal-400 transition-opacity ${program.isGhosted ? 'opacity-50' : ''}`}>{program.adminFeePercentage}% para Costos Administrativos</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -59,11 +113,11 @@ const ProgramDetail: React.FC<ProgramDetailProps> = ({ program, transactions, on
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
           <h3 className="text-xl font-semibold mb-4">Detalle de Ingresos</h3>
-          <TransactionsTable transactions={incomeTransactions} />
+          <TransactionsTable transactions={incomeTransactions} onToggleTransactionGhost={onToggleTransactionGhost} onEditTransaction={onEditTransaction} />
         </div>
         <div>
           <h3 className="text-xl font-semibold mb-4">Detalle de Egresos</h3>
-          <TransactionsTable transactions={expenseTransactions} />
+          <TransactionsTable transactions={expenseTransactions} onToggleTransactionGhost={onToggleTransactionGhost} onEditTransaction={onEditTransaction} />
         </div>
       </div>
     </div>

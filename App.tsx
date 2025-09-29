@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { Program, Transaction, TransactionType } from './types';
+import { Program, Transaction, TransactionType, IncomeTransaction, ExpenseTransaction } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ProgramDetail from './components/ProgramDetail';
 import AddProgramModal from './components/AddProgramModal';
 import AddTransactionModal from './components/AddTransactionModal';
+import EditProgramModal from './components/EditProgramModal';
+import EditTransactionModal from './components/EditTransactionModal';
 
 export default function App() {
   const [programs, setPrograms] = useLocalStorage<Program[]>('programs', []);
@@ -15,15 +17,44 @@ export default function App() {
   
   const [isAddProgramModalOpen, setAddProgramModalOpen] = useState(false);
   const [isAddTransactionModalOpen, setAddTransactionModalOpen] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
 
   const handleAddProgram = (program: Omit<Program, 'id'>) => {
-    setPrograms(prev => [...prev, { ...program, id: crypto.randomUUID() }]);
+    setPrograms(prev => [...prev, { ...program, id: crypto.randomUUID(), isGhosted: false }]);
     setAddProgramModalOpen(false);
   };
 
+  const handleUpdateProgram = (updatedProgram: Program) => {
+    setPrograms(prev => prev.map(p => p.id === updatedProgram.id ? updatedProgram : p));
+    setEditingProgram(null);
+  };
+
   const handleAddTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    setTransactions(prev => [...prev, { ...transaction, id: crypto.randomUUID() } as Transaction]);
+    setTransactions(prev => [...prev, { ...transaction, id: crypto.randomUUID(), isGhosted: false } as Transaction]);
     setAddTransactionModalOpen(false);
+  };
+
+  const handleUpdateTransaction = (updatedTransaction: Transaction) => {
+    setTransactions(prev => prev.map(t => t.id === updatedTransaction.id ? updatedTransaction : t));
+    setEditingTransaction(null);
+  };
+
+  const handleToggleProgramGhost = (programId: string) => {
+    setPrograms(prev =>
+      prev.map(p =>
+        p.id === programId ? { ...p, isGhosted: !p.isGhosted } : p
+      )
+    );
+  };
+
+  const handleToggleTransactionGhost = (transactionId: string) => {
+    setTransactions(prev =>
+      prev.map(t =>
+        t.id === transactionId ? { ...t, isGhosted: !t.isGhosted } : t
+      )
+    );
   };
 
   const selectedProgram = useMemo(() => {
@@ -53,6 +84,8 @@ export default function App() {
             program={selectedProgram}
             transactions={selectedProgramTransactions}
             onBack={handleGoToDashboard}
+            onToggleTransactionGhost={handleToggleTransactionGhost}
+            onEditTransaction={setEditingTransaction}
           />
         ) : (
           <Dashboard
@@ -61,6 +94,8 @@ export default function App() {
             onSelectProgram={handleSelectProgram}
             onOpenAddProgramModal={() => setAddProgramModalOpen(true)}
             onOpenAddTransactionModal={() => setAddTransactionModalOpen(true)}
+            onEditProgram={setEditingProgram}
+            onToggleProgramGhost={handleToggleProgramGhost}
           />
         )}
       </main>
@@ -74,9 +109,26 @@ export default function App() {
 
       {isAddTransactionModalOpen && (
         <AddTransactionModal
-          programs={programs}
+          programs={programs.filter(p => !p.isGhosted)}
           onClose={() => setAddTransactionModalOpen(false)}
           onAddTransaction={handleAddTransaction}
+        />
+      )}
+
+      {editingProgram && (
+        <EditProgramModal
+          program={editingProgram}
+          onClose={() => setEditingProgram(null)}
+          onUpdateProgram={handleUpdateProgram}
+        />
+      )}
+
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          programs={programs.filter(p => !p.isGhosted)}
+          onClose={() => setEditingTransaction(null)}
+          onUpdateTransaction={handleUpdateTransaction}
         />
       )}
     </div>

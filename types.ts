@@ -9,6 +9,7 @@ interface BaseTransaction {
   programId: string;
   amount: number;
   date: string; 
+  isGhosted?: boolean;
 }
 
 export interface IncomeTransaction extends BaseTransaction {
@@ -25,7 +26,8 @@ export interface ExpenseTransaction extends BaseTransaction {
 export type Transaction = IncomeTransaction | ExpenseTransaction;
 
 export interface Program {
-  id: string;
+  id:string;
   name: string;
   adminFeePercentage: number;
+  isGhosted?: boolean;
 }
